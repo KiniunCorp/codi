@@ -1,0 +1,15 @@
+# Placeholder for qwen15b-lora-v0.1 adapter
+
+This directory will contain the trained LoRA adapter after running:
+  
+  python training/qwen15b_lora/train.py
+
+Expected files:
+- adapter_config.json
+- adapter_model.bin or adapter_model.safetensors
+- metadata.json
+- checksums.sha256
+- tokenizer files
+
+Adapter size: <400 MB target
+

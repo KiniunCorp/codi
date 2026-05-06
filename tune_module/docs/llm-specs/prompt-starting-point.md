@@ -1,0 +1,1 @@
+"I have added the project architecture and specs in docs/llm-specs/. Read ARCHITECTURE.md and DATA_PIPELINE.md. I want to start by writing the analyzer.py script described in the pipeline document. Please scaffold the script for me."

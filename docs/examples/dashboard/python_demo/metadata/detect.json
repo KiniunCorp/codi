@@ -1,0 +1,16 @@
+{
+  "confidence": 1.0,
+  "evidence": {
+    "commands": [
+      "python:commands",
+      "python:commands"
+    ],
+    "docker_base": [
+      "python:docker_base"
+    ],
+    "lockfiles": [
+      "python:lockfiles"
+    ]
+  },
+  "stack": "python"
+}

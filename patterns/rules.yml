@@ -1,0 +1,467 @@
+# CODI rules.yml (schema_version: 1)
+# Source of Truth templates for rendering optimized Dockerfiles
+# Stacks covered: node (Next.js), python (FastAPI), java (Spring Boot)
+
+schema_version: 1
+
+rules:
+  # --- Node / Generic ---
+  - id: node_generic_alpine
+    stack: node
+    name: Generic Node.js multi-stage with alpine runtime
+    description: Node 20 build stage; alpine runtime; generic npm/yarn app
+    predicates:
+      files_any: ["package.json"]
+      lockfiles_any: ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]
+    template: |
+      # RATIONALE: Multi-stage build for Node.js with alpine runtime and non-root user.
+      # POLICY: Pinned base tags; avoid cache-busting; no root at runtime.
+      FROM node:20-slim AS builder
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm ci --prefer-offline --no-audit
+      COPY . .
+      RUN npm run build --if-present
+      ENV NODE_ENV=production
+
+      FROM node:20-alpine AS runtime
+      WORKDIR /app
+      LABEL codi.rule_id="node_generic_alpine"
+      LABEL codi.ruleset_version="2025.11-llm"
+      ENV NODE_ENV=production
+      # Create non-root user
+      RUN adduser -D -u 10001 codi
+      USER 10001
+      # Copy runtime assets
+      COPY --from=builder /app/node_modules ./node_modules
+      COPY --from=builder /app/package*.json ./
+      COPY --from=builder /app/dist ./dist || true
+      COPY --from=builder /app/build ./build || true
+      EXPOSE 3000
+      CMD ["node", "index.js"]
+
+  # --- Node / Next.js ---
+  - id: node_nextjs_alpine_runtime
+    stack: node
+    name: Next.js multi-stage with alpine runtime
+    description: Node 20 build stage; alpine runtime; non-root; standalone output
+    predicates:
+      files_any: ["package.json"]
+      lockfiles_any: ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]
+      features_any: ["nextjs"]
+    template: |
+      # RATIONALE: Multi-stage build for Next.js with alpine runtime and non-root user.
+      # POLICY: Pinned base tags; avoid cache-busting; no root at runtime.
+      FROM node:20-slim AS builder
+      WORKDIR /app
+      COPY package*.json ./
+        {% set builder_cmds = cmd_runtime.builder_promotions or [
+            "RUN npm ci --prefer-offline --no-audit",
+            "RUN npm run build || npm run build --if-present"
+        ] %}
+        {% for command in builder_cmds %}
+        {{ command }}
+        {% endfor %}
+      COPY . .
+      # Build Next.js in standalone mode if available
+      ENV NODE_ENV=production
+
+      FROM node:20-alpine AS runtime
+      WORKDIR /app
+      LABEL codi.rule_id="node_nextjs_alpine_runtime"
+      LABEL codi.ruleset_version="2025.11-llm"
+      LABEL codi.adapter_compat="qwen15b-lora-v0.1"
+        {% set runtime_env_steps = cmd_runtime.post_copy_steps or [
+            "ENV NODE_ENV=production",
+            "ENV NEXT_TELEMETRY_DISABLED=1",
+            "ENV CODI_RULESET_VERSION=2025.11-llm"
+        ] %}
+        {% for step in runtime_env_steps %}
+        {{ step }}
+        {% endfor %}
+      # Create non-root user
+      RUN adduser -D -u 10001 codi
+      USER 10001
+      # Copy minimal runtime assets
+      COPY --from=builder /app/.next/standalone ./ || true
+      COPY --from=builder /app/.next/static ./.next/static || true
+      COPY --from=builder /app/public ./public || true
+      EXPOSE 3000
+        {% if not cmd_runtime.applied %}
+        # Fallback to default next start if standalone not present
+        {% endif %}
+        {% if cmd_runtime.rationale_comment %}
+        {{ cmd_runtime.rationale_comment }}
+        {% endif %}
+        {% if cmd_runtime.runtime_instruction %}
+        {{ cmd_runtime.runtime_instruction }}
+        {% else %}
+        CMD ["node", "server.js"]
+        {% endif %}
+
+  # --- Python / Generic ---
+  - id: python_generic_wheels
+    stack: python
+    name: Generic Python wheels + slim runtime
+    description: Build wheels in builder; install wheels into clean slim runtime; non-root
+    predicates:
+      files_any: ["requirements.txt"]
+    template: |
+      # RATIONALE: Build wheels separately to keep runtime clean and cache installs.
+      # POLICY: Pinned base; non-root; minimal apt usage; no cache.
+      FROM python:3.12-slim AS builder
+      ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+          PIP_NO_CACHE_DIR=1 \
+          PYTHONDONTWRITEBYTECODE=1 \
+          PYTHONUNBUFFERED=1
+      WORKDIR /app
+      RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+          && rm -rf /var/lib/apt/lists/*
+      COPY requirements.txt ./
+      RUN pip wheel --wheel-dir /wheels -r requirements.txt
+      COPY . .
+
+      FROM python:3.12-slim AS runtime
+      ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+          PIP_NO_CACHE_DIR=1 \
+          PYTHONDONTWRITEBYTECODE=1 \
+          PYTHONUNBUFFERED=1
+      WORKDIR /app
+      LABEL codi.rule_id="python_generic_wheels"
+      LABEL codi.ruleset_version="2025.11-llm"
+      # Create non-root user
+      RUN useradd -u 10001 -m codi
+      USER 10001
+      COPY --from=builder /wheels /wheels
+      RUN pip install --no-cache-dir /wheels/*
+      COPY --from=builder /app ./
+      EXPOSE 8000
+      CMD ["python", "app.py"]
+
+  # --- Python / FastAPI ---
+  - id: python_fastapi_wheels
+    stack: python
+    name: FastAPI wheels + slim runtime
+    description: Build wheels in builder; install wheels into clean slim runtime; non-root; uvicorn
+    predicates:
+      files_any: ["requirements.txt"]
+      features_any: ["fastapi"]
+    template: |
+      # RATIONALE: Build wheels separately to keep runtime clean and cache installs.
+      # POLICY: Pinned base; non-root; minimal apt usage; no cache.
+      FROM python:3.12-slim AS builder
+      ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+          PIP_NO_CACHE_DIR=1 \
+          PYTHONDONTWRITEBYTECODE=1 \
+          PYTHONUNBUFFERED=1
+      WORKDIR /app
+      RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+          && rm -rf /var/lib/apt/lists/*
+      COPY requirements.txt ./
+        {% set wheel_build_steps = cmd_runtime.builder_promotions or [
+            "RUN pip wheel --wheel-dir /wheels -r requirements.txt"
+        ] %}
+        {% for command in wheel_build_steps %}
+        {{ command }}
+        {% endfor %}
+      COPY . .
+
+      FROM python:3.12-slim AS runtime
+      ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+          PIP_NO_CACHE_DIR=1 \
+          PYTHONDONTWRITEBYTECODE=1 \
+          PYTHONUNBUFFERED=1 \
+          CODI_RULESET_VERSION=2025.11-llm
+      WORKDIR /app
+      LABEL codi.rule_id="python_fastapi_wheels"
+      LABEL codi.ruleset_version="2025.11-llm"
+      LABEL codi.adapter_compat="qwen15b-lora-v0.1"
+      # Create non-root user
+      RUN useradd -u 10001 -m codi
+      USER 10001
+      COPY --from=builder /wheels /wheels
+        {% set runtime_post_copy_steps = cmd_runtime.post_copy_steps or [
+            "RUN pip install --no-cache-dir /wheels/*"
+        ] %}
+        {% for step in runtime_post_copy_steps %}
+        {{ step }}
+        {% endfor %}
+      COPY --from=builder /app /app
+      EXPOSE 8000
+        {% if cmd_runtime.rationale_comment %}
+        {{ cmd_runtime.rationale_comment }}
+        {% endif %}
+        {% if cmd_runtime.runtime_instruction %}
+        {{ cmd_runtime.runtime_instruction }}
+        {% else %}
+        CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+        {% endif %}
+
+  # --- Java / Generic ---
+  - id: java_generic_maven_jre21
+    stack: java
+    name: Generic Java build with Maven; run on JRE 21
+    description: Build with Maven cache; copy jar into JRE runtime; non-root
+    predicates:
+      files_any: ["pom.xml"]
+    template: |
+      # RATIONALE: Split build and runtime; use Temurin JRE; non-root runtime.
+      # POLICY: Pinned base tags; skip tests for speed; non-root user.
+      FROM maven:3.9-eclipse-temurin-21 AS builder
+      WORKDIR /workspace
+      COPY pom.xml ./
+      RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp -q -DskipTests dependency:go-offline
+      COPY . .
+      RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp -q -DskipTests package
+
+      FROM eclipse-temurin:21-jre
+      WORKDIR /app
+      LABEL codi.rule_id="java_generic_maven_jre21"
+      LABEL codi.ruleset_version="2025.11-llm"
+      # Create non-root user
+      RUN useradd -u 10001 -m codi
+      USER 10001
+      COPY --from=builder /workspace/target/*.jar /app/app.jar
+      EXPOSE 8080
+      ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+  # --- Java / Spring Boot ---
+  - id: java_springboot_jre21
+    stack: java
+    name: Spring Boot build with Maven; run on JRE 21
+    description: Build with Maven cache; copy jar into JRE runtime; non-root
+    predicates:
+      files_any: ["pom.xml"]
+      features_any: ["spring-boot"]
+    template: |
+      # RATIONALE: Split build and runtime; use Temurin JRE; non-root runtime.
+      # POLICY: Pinned base tags; skip tests for speed; non-root user.
+      FROM maven:3.9-eclipse-temurin-21 AS builder
+      WORKDIR /workspace
+      COPY pom.xml ./
+      RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp -q -DskipTests dependency:go-offline
+      COPY . .
+      RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp -q -DskipTests package
+
+      FROM eclipse-temurin:21-jre
+      WORKDIR /app
+      ENV CODI_RULESET_VERSION=2025.11-llm
+      LABEL codi.rule_id="java_springboot_jre21"
+      LABEL codi.ruleset_version="2025.11-llm"
+      LABEL codi.adapter_compat="qwen15b-lora-v0.1"
+      # Create non-root user
+      RUN useradd -u 10001 -m codi
+      USER 10001
+      COPY --from=builder /workspace/target/*.jar /app/app.jar
+      EXPOSE 8080
+        {% if cmd_runtime.rationale_comment %}
+        {{ cmd_runtime.rationale_comment }}
+        {% endif %}
+        {% if cmd_runtime.runtime_instruction %}
+        {{ cmd_runtime.runtime_instruction }}
+        {% else %}
+        ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+        {% endif %}
+
+cmd_rewrites:
+  schema_version: 1
+  node:
+    - id: node_shell_to_exec
+      match:
+        form: shell
+        flags:
+          uses_shell_form: true
+        executable_any: ["npm", "yarn", "pnpm", "node"]
+      preferred_form: exec
+      builder_promotions:
+        - RUN npm ci --prefer-offline --no-audit
+        - RUN npm run build || npm run build --if-present
+      post_copy_steps:
+        - ENV NODE_ENV=production
+      runtime_cmd:
+        form: exec
+        argv: ["node", "server.js"]
+      rationale_template: >-
+        Converted shell-form Node runtimes to exec-form and staged npm dependencies in the builder phase.
+    - id: node_runtime_installs
+      match:
+        flags:
+          installs_packages: true
+        script_flags:
+          installs_packages: true
+      preferred_form: exec
+      builder_promotions:
+        - RUN npm ci --prefer-offline --no-audit
+      post_copy_steps: []
+      runtime_cmd:
+        form: exec
+        argv: ["node", "server.js"]
+      rationale_template: >-
+        Promoted package installations detected in CMD scripts into the build stage for reproducibility.
+  python:
+    - id: python_shell_to_exec
+      match:
+        form: shell
+        flags:
+          uses_shell_form: true
+        command_contains_any: ["uvicorn", "gunicorn"]
+      preferred_form: exec
+      builder_promotions:
+        - RUN pip wheel --no-cache-dir -r requirements.txt -w /wheels
+      post_copy_steps:
+        - RUN pip install --no-cache-dir /wheels/*
+      runtime_cmd:
+        form: exec
+        argv: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+      rationale_template: >-
+        Normalised FastAPI runtime to exec-form and leveraged wheel-based installs captured during build.
+    - id: python_runtime_installs
+      match:
+        flags:
+          installs_packages: true
+        command_contains_any: ["pip install", "poetry install"]
+      preferred_form: exec
+      builder_promotions:
+        - RUN pip wheel --no-cache-dir -r requirements.txt -w /wheels
+      post_copy_steps:
+        - RUN pip install --no-cache-dir /wheels/*
+      runtime_cmd:
+        form: exec
+        argv: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+      rationale_template: >-
+        Promoted pip installs from runtime into a deterministic builder stage and preserved exec-form runtime.
+  java:
+    - id: java_shell_to_exec
+      match:
+        form: shell
+        executable_any: ["java"]
+      preferred_form: exec
+      builder_promotions: []
+      post_copy_steps: []
+      runtime_cmd:
+        form: exec
+        argv: ["java", "-jar", "/app/app.jar"]
+      rationale_template: >-
+        Converted Java runtime invocations to exec-form for predictable signal handling.
+
+# LLM Assistance Section
+# Provides context mapping for LLM ranking and rationale generation
+llm_assist:
+  schema_version: 1
+  ruleset_version: "2025.11-llm"
+  
+  # Feature importance weights for ranking
+  ranking_weights:
+    size_reduction: 0.40
+    layer_reduction: 0.30
+    build_time: 0.20
+    policy_compliance: 0.10
+  
+  # Context signals to emphasize in rationale
+  context_signals:
+    node:
+      - "Multi-stage builds separate build and runtime dependencies"
+      - "Alpine base images reduce final image size"
+      - "Exec-form CMD ensures proper signal handling"
+      - "Standalone output mode optimizes Next.js deployments"
+    python:
+      - "Wheel-based installs improve reproducibility and layer caching"
+      - "Slim base images balance size and compatibility"
+      - "Exec-form entrypoints enable graceful shutdowns"
+      - "Builder stage promotions reduce runtime bloat"
+    java:
+      - "Maven cache mounts accelerate dependency resolution"
+      - "JRE-only runtime reduces image size significantly"
+      - "Exec-form entrypoints support proper signal propagation"
+      - "Build stage separation isolates compilation artifacts"
+  
+  # CMD/ENTRYPOINT analysis emphasis
+  cmd_signals:
+    shell_to_exec:
+      importance: high
+      rationale: "Exec-form improves signal handling and process management"
+    runtime_installs:
+      importance: critical
+      rationale: "Builder promotions ensure deterministic, cacheable builds"
+    missing_scripts:
+      importance: medium
+      rationale: "Script validation prevents runtime failures"
+  
+  compatibility_matrix:
+    adapters:
+      - adapter_version: qwen15b-lora-v0.1
+        ruleset: "2025.11-llm"
+        compatible_rules:
+          - node_generic_alpine
+          - node_nextjs_alpine_runtime
+          - python_generic_wheels
+          - python_fastapi_wheels
+          - java_generic_maven_jre21
+          - java_springboot_jre21
+        notes: >
+          Validated via eval suite run 20251125_0245 (see eval/reports/llm_eval.html)
+          using adapters mounted under models/adapters/qwen15b-lora-v0.1.
+  
+  promotions:
+    - id: LLM-PROMO-20251125-NODE
+      rule_id: node_nextjs_alpine_runtime
+      adapter_version: qwen15b-lora-v0.1
+      promoted_at: "2025-11-25T04:12:00Z"
+      metrics:
+        eval_run: eval/runs/20251125_0245
+        eval_report: eval/reports/llm_eval.html#20251125_0245
+        sample_size: 18
+        win_rate: 0.67
+        avg_size_delta_mb: 182.4
+        avg_layer_delta: 4
+      guardrails:
+        allowed_instructions:
+          - RUN npm ci --prefer-offline --no-audit
+          - RUN npm run build || npm run build --if-present
+          - ENV NODE_ENV=production
+          - ENV NEXT_TELEMETRY_DISABLED=1
+          - ENV CODI_RULESET_VERSION=2025.11-llm
+          - LABEL codi.ruleset_version="2025.11-llm"
+        rationale_tags:
+          - multi_stage
+          - adapter_verified
+    - id: LLM-PROMO-20251125-PY
+      rule_id: python_fastapi_wheels
+      adapter_version: qwen15b-lora-v0.1
+      promoted_at: "2025-11-25T04:12:30Z"
+      metrics:
+        eval_run: eval/runs/20251125_0245
+        eval_report: eval/reports/llm_eval.html#20251125_0245
+        sample_size: 18
+        win_rate: 0.72
+        avg_size_delta_mb: 155.2
+        avg_layer_delta: 3
+      guardrails:
+        allowed_instructions:
+          - RUN pip wheel --wheel-dir /wheels -r requirements.txt
+          - RUN pip install --no-cache-dir /wheels/*
+          - ENV CODI_RULESET_VERSION=2025.11-llm
+          - LABEL codi.rule_id="python_fastapi_wheels"
+        rationale_tags:
+          - wheels_first
+          - adapter_verified
+    - id: LLM-PROMO-20251125-JAVA
+      rule_id: java_springboot_jre21
+      adapter_version: qwen15b-lora-v0.1
+      promoted_at: "2025-11-25T04:13:00Z"
+      metrics:
+        eval_run: eval/runs/20251125_0245
+        eval_report: eval/reports/llm_eval.html#20251125_0245
+        sample_size: 12
+        win_rate: 0.61
+        avg_size_delta_mb: 98.7
+        avg_layer_delta: 2
+      guardrails:
+        allowed_instructions:
+          - RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp -q -DskipTests dependency:go-offline
+          - RUN --mount=type=cache,target=/root/.m2 mvn -B -e -ntp -q -DskipTests package
+          - ENV CODI_RULESET_VERSION=2025.11-llm
+          - LABEL codi.rule_id="java_springboot_jre21"
+        rationale_tags:
+          - maven_cache
+          - adapter_verified

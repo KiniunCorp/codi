@@ -1,0 +1,5 @@
+FROM alpine:3.18
+RUN mkdir -p /app
+WORKDIR /app
+COPY . .
+CMD ["sh","-c","echo ready"]

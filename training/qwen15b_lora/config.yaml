@@ -1,0 +1,227 @@
+# QLoRA Training Configuration for CODI Dockerfile Optimization
+# Model: Qwen2.5-Coder-1.5B with 4-bit quantization
+# Target: Fine-tune on Dockerfile optimization pairs
+
+# ============================================================================
+# Model Configuration
+# ============================================================================
+model:
+  base_model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+  model_type: "qwen2"
+  adapter_name: "qwen15b-lora-v0.1"
+  
+  # Quantization settings (4-bit for memory efficiency)
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "bfloat16"  # or "float16" for older GPUs
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_use_double_quant: true
+
+# ============================================================================
+# LoRA Configuration
+# ============================================================================
+lora:
+  # LoRA rank - controls adapter capacity vs size tradeoff
+  r: 16  # 8-32 range typical; 16 is a good balance
+  
+  # LoRA alpha - scaling factor (typically 2x rank)
+  lora_alpha: 32
+  
+  # Dropout for regularization
+  lora_dropout: 0.05
+  
+  # Target modules for LoRA adaptation
+  # Qwen2.5-Coder uses these attention/MLP layers
+  target_modules:
+    - "q_proj"    # Query projection
+    - "k_proj"    # Key projection
+    - "v_proj"    # Value projection
+    - "o_proj"    # Output projection
+    - "gate_proj" # MLP gate
+    - "up_proj"   # MLP up
+    - "down_proj" # MLP down
+  
+  # LoRA bias - typically "none" for QLoRA
+  bias: "none"
+  
+  # Task type
+  task_type: "CAUSAL_LM"
+
+# ============================================================================
+# Training Hyperparameters
+# ============================================================================
+training:
+  # Dataset paths (relative to repo root)
+  train_data: "data/splits/train.jsonl"
+  val_data: "data/splits/val.jsonl"
+  
+  # Training duration
+  num_train_epochs: 3
+  max_steps: -1  # -1 means use epochs instead
+  
+  # Batch sizes
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16  # Effective batch size = 16
+  
+  # Learning rate
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  
+  # Optimization
+  optim: "paged_adamw_8bit"  # Memory-efficient optimizer
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  
+  # Sequence length
+  max_seq_length: 4096  # Dockerfile + context fits well
+  
+  # Evaluation
+  evaluation_strategy: "steps"
+  eval_steps: 50
+  save_strategy: "steps"
+  save_steps: 100
+  save_total_limit: 3
+  
+  # Logging
+  logging_steps: 10
+  logging_dir: "training/qwen15b_lora/logs"
+  
+  # Output
+  output_dir: "training/qwen15b_lora/checkpoints"
+  
+  # Mixed precision
+  fp16: false
+  bf16: true  # Better for training stability; false if not supported
+  
+  # Other
+  seed: 42
+  dataloader_num_workers: 2
+  remove_unused_columns: false
+  group_by_length: false
+
+# ============================================================================
+# Hardware Assumptions & Requirements
+# ============================================================================
+hardware:
+  # Minimum requirements
+  min_vram_gb: 8
+  recommended_vram_gb: 16
+  
+  # Expected with 4-bit quantization + LoRA r=16
+  estimated_vram_usage:
+    model_base: "~3 GB"      # 4-bit quantized Qwen2.5-Coder-1.5B
+    lora_params: "~50 MB"    # LoRA adapters
+    optimizer: "~2 GB"       # Paged AdamW 8-bit states
+    activations: "~3 GB"     # Gradients + forward pass
+    total: "~8-10 GB"
+  
+  # CPU fallback
+  cpu_training_supported: true
+  cpu_training_note: "Extremely slow; recommend GPU or cloud instance"
+
+# ============================================================================
+# Dataset Configuration
+# ============================================================================
+dataset:
+  instruction_field: "instruction"
+  input_field: "input"
+  output_field: "output"
+  
+  # Expected record format (JSONL)
+  # {
+  #   "instruction": "Optimize this Dockerfile for production...",
+  #   "input": "FROM ubuntu:22.04\nRUN apt-get update...",
+  #   "output": "Applied rule: python_fastapi_wheels\nRationale: ..."
+  # }
+  
+  # Preprocessing
+  shuffle_train: true
+  shuffle_seed: 42
+
+# ============================================================================
+# Adapter Packaging & Metadata
+# ============================================================================
+adapter:
+  output_path: "models/adapters/qwen15b-lora-v0.1"
+  
+  # Files to generate
+  files:
+    - "adapter_config.json"
+    - "adapter_model.bin"    # PyTorch format
+    - "adapter_model.safetensors"  # Safer alternative
+    - "metadata.json"
+  
+  # Metadata to capture
+  metadata:
+    version: "v0.1"
+    base_model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    dataset_commit: "auto"  # Git hash of dataset at training time
+    training_date: "auto"
+    lora_r: 16
+    lora_alpha: 32
+    target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    num_train_examples: "auto"
+    num_epochs: 3
+    effective_batch_size: 16
+    rules_version: "auto"  # From patterns/rules.yml
+    
+  # Checksum for integrity
+  checksum_algo: "sha256"
+
+# ============================================================================
+# Export & Deployment
+# ============================================================================
+export:
+  # GGUF export for llama.cpp runtime
+  enable_gguf_export: true
+  gguf_output_path: "models/adapters/qwen15b-lora-v0.1/adapter.gguf"
+  gguf_quant_type: "Q4_K_M"  # Medium quality 4-bit
+  
+  # Merge with base (optional, creates standalone model)
+  enable_merge: false
+  merged_output_path: "models/merged/qwen15b-codi-v0.1"
+
+# ============================================================================
+# Validation & Testing
+# ============================================================================
+validation:
+  # Dry-run mode (validate config without downloading model)
+  dry_run_supported: true
+  
+  # Test prompts for sanity check
+  test_prompts:
+    - instruction: "Optimize this Node.js Dockerfile"
+      input: "FROM node:20\nCOPY . .\nRUN npm install\nCMD npm start"
+      expected_keywords: ["multi-stage", "npm ci", "alpine", "exec-form"]
+    
+    - instruction: "Improve this Python Dockerfile"
+      input: "FROM python:3.12\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\nCOPY . .\nCMD python app.py"
+      expected_keywords: ["wheel", "slim", "uvicorn", "PYTHONDONTWRITEBYTECODE"]
+
+# ============================================================================
+# Notes & References
+# ============================================================================
+notes:
+  description: |
+    This configuration trains a QLoRA adapter for Qwen2.5-Coder-1.5B to 
+    rank and explain Dockerfile optimization candidates. The adapter is 
+    designed to work with CODI's rules-first architecture, providing 
+    rationales and confidence scores without generating raw Dockerfiles.
+  
+  references:
+    - "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    - "https://github.com/artidoro/qlora"
+    - "https://huggingface.co/docs/peft/quicktour"
+  
+  limitations:
+    - "Requires bitsandbytes library (Linux/WSL only as of 2024)"
+    - "BFloat16 requires Ampere+ GPUs (RTX 30xx/40xx, A100, etc.)"
+    - "Training on CPU is supported but impractically slow"
+  
+  tips:
+    - "Use gradient checkpointing if VRAM constrained (trades compute for memory)"
+    - "Increase gradient_accumulation_steps if batch size 1 is unstable"
+    - "Monitor train/val loss divergence for overfitting"
+    - "Adapter size should be <400 MB for deployment constraints"
+

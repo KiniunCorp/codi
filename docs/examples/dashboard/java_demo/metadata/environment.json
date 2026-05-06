@@ -1,0 +1,17 @@
+{
+  "airgap": {
+    "allowlist": [],
+    "enabled": true
+  },
+  "llm": {
+    "enabled": true,
+    "endpoint": null,
+    "host": "127.0.0.1",
+    "max_tokens": 256,
+    "model_id": "codi-local-llama",
+    "port": 8081
+  },
+  "output_root": "/workspace/docs/examples/dashboard/runs",
+  "rules_path": "/workspace/patterns/rules.yml",
+  "rules_source": "default"
+}

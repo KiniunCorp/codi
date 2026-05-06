@@ -1,0 +1,15 @@
+{
+  "confidence": 1.0,
+  "evidence": {
+    "commands": [
+      "node:commands"
+    ],
+    "docker_base": [
+      "node:docker_base"
+    ],
+    "lockfiles": [
+      "node:lockfiles"
+    ]
+  },
+  "stack": "node"
+}

@@ -1,0 +1,29 @@
+{
+  "version": "v0.1.0-dev",
+  "model": "Qwen/Qwen2.5-Coder-1.5B",
+  "adapter_type": "lora",
+  "training_date": "2025-11-24",
+  "dataset": "codi-dockerfile-pairs-v1",
+  "dataset_size": 1000,
+  "training_config": {
+    "lora_r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"],
+    "epochs": 3,
+    "batch_size": 4,
+    "learning_rate": 0.0002
+  },
+  "checksums": {
+    "adapter_config.json": "placeholder_sha256_for_testing",
+    "adapter_model.safetensors": "placeholder_sha256_for_testing"
+  },
+  "compatibility": {
+    "min_transformers_version": "4.35.0",
+    "min_peft_version": "0.7.0",
+    "llama_cpp_compatible": true
+  },
+  "notes": "Development stub adapter for LLM-004 Wave testing. Replace with trained weights.",
+  "status": "stub"
+}
+

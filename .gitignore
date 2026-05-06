@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments
+.env
+.venv/
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Project artifacts
+runs/
+reports/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Containers
+*.tar
+
+# MacOS
+.DS_Store
+
+# Tuning input data
+data/curated/
+data/raw/
+data/colab-zip-files/
+
+# Model weights — store in LFS or mount at runtime; do not commit to git
+models/adapters/*/adapter_model.safetensors
+models/adapters/*/adapter_model.bin
+models/adapters/*/*.gguf
+models/weights/

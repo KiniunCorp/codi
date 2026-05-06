@@ -1,0 +1,13 @@
+{
+  "confidence": 0.85,
+  "evidence": {
+    "commands": [],
+    "docker_base": [
+      "java:docker_base"
+    ],
+    "lockfiles": [
+      "java:lockfiles"
+    ]
+  },
+  "stack": "java"
+}

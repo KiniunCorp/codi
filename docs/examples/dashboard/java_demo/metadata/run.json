@@ -1,0 +1,99 @@
+{
+  "assist": {
+    "recommendation": {
+      "confidence": 0.35,
+      "reason": "Heuristic tie-breaker: ~342.0 MB smaller & 3 fewer layers.",
+      "rule_id": "java_springboot_jre21",
+      "source": "heuristic"
+    },
+    "summary": "java (java) benefits most via template java_springboot_jre21, delivering 342.0 MB smaller, 3 fewer layers, 9.5s faster builds. Signals: spring-boot. Policy guardrails remain enforced."
+  },
+  "candidates": [
+    {
+      "description": "Build with Maven cache; copy jar into JRE runtime; non-root",
+      "dockerfile_path": "candidates/001-java_springboot_jre21.Dockerfile",
+      "metrics": {
+        "build_seconds": 18.79,
+        "layers": 4,
+        "mode": "dry_run",
+        "size_bytes": 158334976
+      },
+      "name": "Spring Boot build with Maven; run on JRE 21",
+      "policy_notes": [
+        "Pinned base tags; skip tests for speed; non-root user."
+      ],
+      "rationale": [
+        "Split build and runtime; use Temurin JRE; non-root runtime."
+      ],
+      "rule_id": "java_springboot_jre21"
+    }
+  ],
+  "created_at": "20251031T150940Z",
+  "detection": {
+    "confidence": 0.85,
+    "evidence": {
+      "commands": [],
+      "docker_base": [
+        "java:docker_base"
+      ],
+      "lockfiles": [
+        "java:lockfiles"
+      ]
+    },
+    "stack": "java"
+  },
+  "environment": {
+    "airgap": {
+      "allowlist": [],
+      "enabled": true
+    },
+    "llm": {
+      "enabled": true,
+      "endpoint": null,
+      "host": "127.0.0.1",
+      "max_tokens": 256,
+      "model_id": "codi-local-llama",
+      "port": 8081
+    },
+    "output_root": "/workspace/docs/examples/dashboard/runs",
+    "rules_path": "/workspace/patterns/rules.yml",
+    "rules_source": "default"
+  },
+  "metrics": {
+    "analysis_seconds": 0.0002,
+    "render_seconds": 0.0023,
+    "total_seconds": 0.0037
+  },
+  "mode": "dry_run",
+  "original": {
+    "dockerfile_path": "inputs/Dockerfile",
+    "metrics": {
+      "build_seconds": 28.25,
+      "layers": 7,
+      "mode": "dry_run",
+      "size_bytes": 516947968
+    }
+  },
+  "project_root": "demo/java",
+  "rag": {
+    "matches": [],
+    "query_tokens": [
+      "confidence:8",
+      "evidence:docker_base:java",
+      "evidence:lockfiles:java",
+      "feature:spring-boot",
+      "file:.xml",
+      "file:Dockerfile",
+      "lock:pom.xml",
+      "metric:layers:<= 8",
+      "metric:seconds:<= 40",
+      "metric:size_mb:<= 600",
+      "policy:pinned-base-tags-skip-tests-for-speed-non-root-user",
+      "rationale:split-build-and-runtime-use-temurin-jre-non-root-runtime",
+      "rule:java_springboot_jre21",
+      "stack:java"
+    ]
+  },
+  "run_id": "20251031T150940Z-java-java",
+  "stack": "java"
+}

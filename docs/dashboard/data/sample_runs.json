@@ -1,0 +1,150 @@
+{
+  "generated_at": "2025-10-31T15:14:28.525572+00:00",
+  "runs_root": "/workspace/docs/examples/dashboard",
+  "run_count": 3,
+  "runs": [
+    {
+      "run_id": "20251031T150940Z-java-java",
+      "stack": "java",
+      "mode": "dry_run",
+      "project_name": "java",
+      "created_at": "2025-10-31T15:09:40+00:00",
+      "original": {
+        "size_mb": 493.0,
+        "layers": 7,
+        "build_seconds": 28.25
+      },
+      "candidate_count": 1,
+      "best_candidate": {
+        "rule_id": "java_springboot_jre21",
+        "name": "Spring Boot build with Maven; run on JRE 21",
+        "description": "Build with Maven cache; copy jar into JRE runtime; non-root",
+        "size_mb": 151.0,
+        "layers": 4,
+        "build_seconds": 18.79,
+        "size_delta_mb": -342.0,
+        "size_delta_pct": -69.37,
+        "layers_delta": -3,
+        "build_delta_seconds": -9.46
+      },
+      "assist_summary": "java (java) benefits most via template java_springboot_jre21, delivering 342.0 MB smaller, 3 fewer layers, 9.5s faster builds. Signals: spring-boot. Policy guardrails remain enforced.",
+      "paths": {
+        "run_dir": "../examples/dashboard/java_demo",
+        "report_markdown": "../examples/dashboard/java_demo/reports/report.md",
+        "report_html": "../examples/dashboard/java_demo/reports/report.html"
+      },
+      "environment": {
+        "airgap_enabled": true,
+        "llm_enabled": true
+      },
+      "tags": [
+        "airgap",
+        "llm"
+      ]
+    },
+    {
+      "run_id": "20251031T150940Z-node-node",
+      "stack": "node",
+      "mode": "dry_run",
+      "project_name": "node",
+      "created_at": "2025-10-31T15:09:40+00:00",
+      "original": {
+        "size_mb": 186.0,
+        "layers": 8,
+        "build_seconds": 29.1
+      },
+      "candidate_count": 1,
+      "best_candidate": {
+        "rule_id": "node_nextjs_alpine_runtime",
+        "name": "Next.js multi-stage with alpine runtime",
+        "description": "Node 20 build stage; alpine runtime; non-root; standalone output",
+        "size_mb": 88.0,
+        "layers": 6,
+        "build_seconds": 21.78,
+        "size_delta_mb": -98.0,
+        "size_delta_pct": -52.69,
+        "layers_delta": -2,
+        "build_delta_seconds": -7.32
+      },
+      "assist_summary": "node (node) benefits most via template node_nextjs_alpine_runtime, delivering 98.0 MB smaller, 2 fewer layers, 7.3s faster builds. Signals: nextjs. Policy guardrails remain enforced.",
+      "paths": {
+        "run_dir": "../examples/dashboard/node_demo",
+        "report_markdown": "../examples/dashboard/node_demo/reports/report.md",
+        "report_html": "../examples/dashboard/node_demo/reports/report.html"
+      },
+      "environment": {
+        "airgap_enabled": true,
+        "llm_enabled": true
+      },
+      "tags": [
+        "airgap",
+        "llm"
+      ]
+    },
+    {
+      "run_id": "20251031T150940Z-python-python",
+      "stack": "python",
+      "mode": "dry_run",
+      "project_name": "python",
+      "created_at": "2025-10-31T15:09:40+00:00",
+      "original": {
+        "size_mb": 200.0,
+        "layers": 8,
+        "build_seconds": 33.1
+      },
+      "candidate_count": 1,
+      "best_candidate": {
+        "rule_id": "python_fastapi_wheels",
+        "name": "FastAPI wheels + slim runtime",
+        "description": "Build wheels in builder; install wheels into clean slim runtime; non-root; uvicorn",
+        "size_mb": 110.0,
+        "layers": 6,
+        "build_seconds": 26.18,
+        "size_delta_mb": -90.0,
+        "size_delta_pct": -45.0,
+        "layers_delta": -2,
+        "build_delta_seconds": -6.92
+      },
+      "assist_summary": "python (python) benefits most via template python_fastapi_wheels, delivering 90.0 MB smaller, 2 fewer layers, 6.9s faster builds. Signals: fastapi. Policy guardrails remain enforced.",
+      "paths": {
+        "run_dir": "../examples/dashboard/python_demo",
+        "report_markdown": "../examples/dashboard/python_demo/reports/report.md",
+        "report_html": "../examples/dashboard/python_demo/reports/report.html"
+      },
+      "environment": {
+        "airgap_enabled": true,
+        "llm_enabled": true
+      },
+      "tags": [
+        "airgap",
+        "llm"
+      ]
+    }
+  ],
+  "stacks": [
+    {
+      "stack": "java",
+      "run_count": 1,
+      "avg_size_delta_pct": -69.37,
+      "avg_build_delta_seconds": -9.46,
+      "best_run_id": "20251031T150940Z-java-java",
+      "best_rule_id": "java_springboot_jre21"
+    },
+    {
+      "stack": "node",
+      "run_count": 1,
+      "avg_size_delta_pct": -52.69,
+      "avg_build_delta_seconds": -7.32,
+      "best_run_id": "20251031T150940Z-node-node",
+      "best_rule_id": "node_nextjs_alpine_runtime"
+    },
+    {
+      "stack": "python",
+      "run_count": 1,
+      "avg_size_delta_pct": -45.0,
+      "avg_build_delta_seconds": -6.92,
+      "best_run_id": "20251031T150940Z-python-python",
+      "best_rule_id": "python_fastapi_wheels"
+    }
+  ]
+}

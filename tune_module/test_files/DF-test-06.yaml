@@ -1,0 +1,4 @@
+FROM ubuntu
+RUN apt-get update && apt-get upgrade -y
+RUN echo "data" | tee /tmp/data.txt
+CMD ["bash"]

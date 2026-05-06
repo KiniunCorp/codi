@@ -1,0 +1,20 @@
+{
+  "matches": [],
+  "query_tokens": [
+    "confidence:10",
+    "evidence:commands:python",
+    "evidence:docker_base:python",
+    "evidence:lockfiles:python",
+    "feature:fastapi",
+    "file:.txt",
+    "file:Dockerfile",
+    "lock:requirements.txt",
+    "metric:layers:<= 8",
+    "metric:seconds:<= 40",
+    "metric:size_mb:<= 250",
+    "policy:pinned-base-non-root-minimal-apt-usage-no-cache",
+    "rationale:build-wheels-separately-to-keep-runtime-clean-and-cache-installs",
+    "rule:python_fastapi_wheels",
+    "stack:python"
+  ]
+}

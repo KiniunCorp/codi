@@ -1,0 +1,81 @@
+ARG SLIM_IMAGE=codi:slim
+FROM ${SLIM_IMAGE} AS base
+
+# ------------------------------------------------------------------------------
+# llama.cpp build stage for CPU-only inference
+# ------------------------------------------------------------------------------
+FROM base AS llama-builder
+
+USER root
+
+# Install build dependencies for llama.cpp
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    ca-certificates \
+    curl \
+    libcurl4-openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build llama.cpp with CPU optimizations
+WORKDIR /tmp/llama-build
+RUN git clone --depth 1 --branch master https://github.com/ggerganov/llama.cpp.git . && \
+    cmake -B build -DLLAMA_NATIVE=OFF -DLLAMA_AVX2=ON -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build --config Release -j $(nproc) && \
+    cp build/bin/llama-server /usr/local/bin/llama-server && \
+    cp build/bin/llama-cli /usr/local/bin/llama-cli && \
+    chmod +x /usr/local/bin/llama-*
+
+# ------------------------------------------------------------------------------
+# Final runtime image – extends Slim with the embedded local LLM runtime.
+# ------------------------------------------------------------------------------
+FROM base AS complete
+
+# Switch to root to install additional runtime tooling and copy entrypoint files.
+USER root
+
+# Copy llama.cpp binaries from builder stage
+COPY --from=llama-builder /usr/local/bin/llama-server /usr/local/bin/llama-server
+COPY --from=llama-builder /usr/local/bin/llama-cli /usr/local/bin/llama-cli
+
+ENV \
+    LLM_ENABLED=true \
+    AIRGAP=true \
+    LLM_HOST=127.0.0.1 \
+    LLM_PORT=8081 \
+    LLM_ENDPOINT=http://127.0.0.1:8081 \
+    LLM_MODEL_ID=codi-local-llama \
+    LLM_MAX_TOKENS=256 \
+    CODI_OUTPUT_ROOT=/work/runs \
+    MODEL_MOUNT_PATH=/models \
+    CODE_MODEL=qwen2.5-coder-1.5b \
+    ADAPTER_PATH=/models/adapters/qwen15b-lora-v0.1 \
+    LLAMA_CPP_THREADS=4
+
+# Ensure shared runtime directories exist for run artefacts, model mounts, and RAG index.
+RUN mkdir -p /work/runs /models /opt/codi/runs/_rag /models/adapters && \
+    chown -R codi:codi /work /models /opt/codi/runs
+
+# Copy adapter mount helper scripts
+COPY --chown=codi:codi docker/scripts/mount_adapter.sh /opt/codi/scripts/mount_adapter.sh
+COPY --chown=codi:codi docker/scripts/verify_adapter.py /opt/codi/scripts/verify_adapter.py
+
+# Copy the complete runtime launcher that orchestrates API + local LLM server.
+COPY --chown=codi:codi docker/runtime_complete.py /opt/codi/docker/runtime_complete.py
+
+# Expose both the FastAPI port and the embedded LLM server port.
+EXPOSE 8000 8081
+
+# Healthcheck ensures both API and local LLM respond.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8081/healthz >/dev/null \
+    && curl -fsS http://127.0.0.1:8000/docs >/dev/null
+
+# Drop back to the non-root application user defined in the Slim image.
+USER codi
+
+WORKDIR /opt/codi
+
+# Default command launches the local LLM server and FastAPI service together.
+CMD ["python", "/opt/codi/docker/runtime_complete.py"]

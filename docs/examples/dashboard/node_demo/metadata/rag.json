@@ -1,0 +1,20 @@
+{
+  "matches": [],
+  "query_tokens": [
+    "confidence:10",
+    "evidence:commands:node",
+    "evidence:docker_base:node",
+    "evidence:lockfiles:node",
+    "feature:nextjs",
+    "file:.json",
+    "file:Dockerfile",
+    "lock:package-lock.json",
+    "metric:layers:<= 8",
+    "metric:seconds:<= 40",
+    "metric:size_mb:<= 250",
+    "policy:pinned-base-tags-avoid-cache-busting-no-root-at-runtime",
+    "rationale:multi-stage-build-for-next-js-with-alpine-runtime-and-non-root-user",
+    "rule:node_nextjs_alpine_runtime",
+    "stack:node"
+  ]
+}

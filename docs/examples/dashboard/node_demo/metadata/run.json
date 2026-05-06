@@ -1,0 +1,102 @@
+{
+  "assist": {
+    "recommendation": {
+      "confidence": 0.35,
+      "reason": "Heuristic tie-breaker: ~98.0 MB smaller & 2 fewer layers.",
+      "rule_id": "node_nextjs_alpine_runtime",
+      "source": "heuristic"
+    },
+    "summary": "node (node) benefits most via template node_nextjs_alpine_runtime, delivering 98.0 MB smaller, 2 fewer layers, 7.3s faster builds. Signals: nextjs. Policy guardrails remain enforced."
+  },
+  "candidates": [
+    {
+      "description": "Node 20 build stage; alpine runtime; non-root; standalone output",
+      "dockerfile_path": "candidates/001-node_nextjs_alpine_runtime.Dockerfile",
+      "metrics": {
+        "build_seconds": 21.78,
+        "layers": 6,
+        "mode": "dry_run",
+        "size_bytes": 92274688
+      },
+      "name": "Next.js multi-stage with alpine runtime",
+      "policy_notes": [
+        "Pinned base tags; avoid cache-busting; no root at runtime."
+      ],
+      "rationale": [
+        "Multi-stage build for Next.js with alpine runtime and non-root user."
+      ],
+      "rule_id": "node_nextjs_alpine_runtime"
+    }
+  ],
+  "created_at": "20251031T150940Z",
+  "detection": {
+    "confidence": 1.0,
+    "evidence": {
+      "commands": [
+        "node:commands"
+      ],
+      "docker_base": [
+        "node:docker_base"
+      ],
+      "lockfiles": [
+        "node:lockfiles"
+      ]
+    },
+    "stack": "node"
+  },
+  "environment": {
+    "airgap": {
+      "allowlist": [],
+      "enabled": true
+    },
+    "llm": {
+      "enabled": true,
+      "endpoint": null,
+      "host": "127.0.0.1",
+      "max_tokens": 256,
+      "model_id": "codi-local-llama",
+      "port": 8081
+    },
+    "output_root": "/workspace/docs/examples/dashboard/runs",
+    "rules_path": "/workspace/patterns/rules.yml",
+    "rules_source": "default"
+  },
+  "metrics": {
+    "analysis_seconds": 0.0002,
+    "render_seconds": 0.0033,
+    "total_seconds": 0.0093
+  },
+  "mode": "dry_run",
+  "original": {
+    "dockerfile_path": "inputs/Dockerfile",
+    "metrics": {
+      "build_seconds": 29.1,
+      "layers": 8,
+      "mode": "dry_run",
+      "size_bytes": 195035136
+    }
+  },
+  "project_root": "demo/node",
+  "rag": {
+    "matches": [],
+    "query_tokens": [
+      "confidence:10",
+      "evidence:commands:node",
+      "evidence:docker_base:node",
+      "evidence:lockfiles:node",
+      "feature:nextjs",
+      "file:.json",
+      "file:Dockerfile",
+      "lock:package-lock.json",
+      "metric:layers:<= 8",
+      "metric:seconds:<= 40",
+      "metric:size_mb:<= 250",
+      "policy:pinned-base-tags-avoid-cache-busting-no-root-at-runtime",
+      "rationale:multi-stage-build-for-next-js-with-alpine-runtime-and-non-root-user",
+      "rule:node_nextjs_alpine_runtime",
+      "stack:node"
+    ]
+  },
+  "run_id": "20251031T150940Z-node-node",
+  "stack": "node"
+}

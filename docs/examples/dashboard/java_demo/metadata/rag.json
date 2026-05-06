@@ -1,0 +1,19 @@
+{
+  "matches": [],
+  "query_tokens": [
+    "confidence:8",
+    "evidence:docker_base:java",
+    "evidence:lockfiles:java",
+    "feature:spring-boot",
+    "file:.xml",
+    "file:Dockerfile",
+    "lock:pom.xml",
+    "metric:layers:<= 8",
+    "metric:seconds:<= 40",
+    "metric:size_mb:<= 600",
+    "policy:pinned-base-tags-skip-tests-for-speed-non-root-user",
+    "rationale:split-build-and-runtime-use-temurin-jre-non-root-runtime",
+    "rule:java_springboot_jre21",
+    "stack:java"
+  ]
+}

@@ -1,0 +1,5 @@
+FROM debian:12
+MAINTAINER Example
+RUN sudo apt-get update
+RUN cd /tmp
+CMD ["bash"]
